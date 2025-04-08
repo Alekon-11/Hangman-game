@@ -20,32 +20,53 @@ import GameNotification from './components/GameNotification.vue'
 import GamePopup from './components/GamePopup.vue'
 import GameWord from './components/GameWord.vue'
 import GameWrongLetters from './components/GameWrongLetters.vue'
+import axios from 'axios'
 
-const word = ref('антон')
+const word = ref('')
 const letters = ref<string[]>([])
 const correctLetters = computed(() => letters.value.filter(item => word.value.includes(item)))
 const wrongLetters = computed(() => letters.value.filter(item => !word.value.includes(item)))
 const notification = ref<InstanceType<typeof GameNotification> | null>(null)
 const popup = ref<InstanceType<typeof GamePopup> | null>(null)
+const isStatusLose = computed(() => wrongLetters.value.length === 6)
+const isStatusWin = computed(() => [...word.value].every(l => correctLetters.value.includes(l)))
 
-const restart = () => {
+const getRandomWord = async () => {
+    try {
+        const { data } = await axios<{ FirstName: string }>(
+            'https://api.randomdatatools.ru/?unescaped=false&params=FirstName'
+        )
+
+        word.value = data.FirstName.toLowerCase()
+    } catch (error) {
+        console.error(error)
+        word.value = ''
+    }
+}
+
+getRandomWord()
+
+const restart = async () => {
+    await getRandomWord()
     letters.value = []
     popup.value?.close()
 }
 
 watch(wrongLetters, () => {
-    if (wrongLetters.value.length === 6) {
+    if (isStatusLose.value) {
         popup.value?.open('lose')
     }
 })
 
 watch(correctLetters, () => {
-    if ([...word.value].every(l => correctLetters.value.includes(l))) {
+    if (isStatusWin.value) {
         popup.value?.open('win')
     }
 })
 
 document.addEventListener('keydown', e => {
+    if (isStatusLose.value || isStatusWin.value) return
+
     if (letters.value.includes(e.key)) {
         notification.value?.open()
         setTimeout(() => notification.value?.close(), 2000)
